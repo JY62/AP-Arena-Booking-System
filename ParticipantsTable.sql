@@ -75,3 +75,59 @@ BEGIN
 END;
 GO
 
+
+--encrypting
+
+-- Create a symmetric key for encryption
+CREATE SYMMETRIC KEY ParticipantKey
+WITH ALGORITHM = AES_256
+ENCRYPTION BY PASSWORD = 'YourStrongPasswordHere';
+
+-- make new encrypted columns
+alter Table Participants Add FullName_Encrypted varbinary(Max)Null
+alter Table Participants Add Email_Encrypted varbinary(Max)Null
+alter Table Participants Add PhoneNumber_Encrypted varbinary(Max)Null
+
+--Encrypting new columns
+Open Symmetric Key ParticipantKey
+DECRYPTION BY PASSWORD = 'YourStrongPasswordHere';
+
+update Participants Set [FullName_Encrypted] = ENCRYPTBYKEY
+(KEY_GUID('ParticipantKey'), FullName);
+
+update Participants Set [Email_Encrypted] = ENCRYPTBYKEY
+(KEY_GUID('ParticipantKey'), Email);
+
+update Participants Set [PhoneNumber_Encrypted] = ENCRYPTBYKEY
+(KEY_GUID('ParticipantKey'), PhoneNumber);
+
+--drop decrypted columns
+Alter table Participants Drop Column FullName
+Alter table Participants Drop Column Email
+Alter table Participants Drop Column PhoneNumber
+
+--rename columns
+
+EXEC sp_rename 'dbo.Participants.FullName_Encrypted',
+'FullName', 'COLUMN';
+EXEC sp_rename 'dbo.Participants.Email_Encrypted',
+'Email', 'COLUMN';
+EXEC sp_rename 'dbo.Participants.PhoneNumber_Encrypted',
+'PhoneNumber', 'COLUMN';
+
+-- show decrypted columns
+
+Open Symmetric Key ParticipantKey
+DECRYPTION BY PASSWORD = 'YourStrongPasswordHere';
+
+Select ParticipantID, BookingID, Age, Gender,
+convert(varchar, DECRYPTBYKEY(FullName))
+As 'DecryptedName',
+convert(varchar, DECRYPTBYKEY(Email))
+As 'DecryptedEmail',
+convert(varchar, DECRYPTBYKEY(PhoneNumber))
+As 'DecryptedPhoneNumber' from Participants;
+
+close symmetric key ParticipantKey
+
+select * from Participants
