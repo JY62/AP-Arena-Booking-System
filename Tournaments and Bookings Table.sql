@@ -58,11 +58,13 @@ CREATE TABLE Booking (
     BookingID VARCHAR(8) PRIMARY KEY CHECK (BookingID LIKE 'APA%' AND LEN(BookingID) = 8), -- Prefix 'APA' and 8 characters long
     FacilityID VARCHAR(8) NOT NULL CHECK (FacilityID LIKE 'F%' AND LEN(FacilityID) = 8), -- 'F' prefix for FacilityID
     UserID VARCHAR(8) NOT NULL CHECK (UserID LIKE 'DA%' OR UserID LIKE 'CM%' OR UserID LIKE 'TO%' OR UserID LIKE 'IC%' AND LEN(UserID) = 8), -- Prefixes for users
-    BookingType VARCHAR(20) CHECK (BookingType IN ('Tournament', 'Individual')), -- Validates that the type is either 'Tournament' or 'Individual'
-    TournamentID VARCHAR(8) NULL CHECK (TournamentID LIKE 'T%' AND LEN(TournamentID) = 8), -- 'F' prefix for TournamentID, Null if BookingType = Individual
+    BookingType VARCHAR(20) CHECK (BookingType IN ('Tournament', 'Individual')), -- Validates either 'Tournament' or 'Individual'
+    TournamentID VARCHAR(8) NULL CHECK (
+    (BookingType = 'Tournament' AND TournamentID LIKE 'T%' AND LEN(TournamentID) = 8) 
+    OR (BookingType = 'Individual' AND TournamentID IS NULL)), -- 'T' prefix for TournamentID, Null if BookingType = Individual
     StartDateTime DATETIME NOT NULL, -- Start date and time of the booking
     EndDateTime DATETIME NOT NULL, -- End date and time of the booking
-    TotalAmountOfPeople INT NULL, -- Total number of people in the booking, Null if 'BookingType' = Individual
+    TotalAmountOfPeople INT NULL, -- Total number of people in the booking
     BookingStatus VARCHAR(20) CHECK (BookingStatus IN ('Approved', 'Pending', 'Rejected')), -- Validates the booking status
     FOREIGN KEY (FacilityID) REFERENCES Facilities(FacilityID), -- FK reference to Facilities table
     FOREIGN KEY (UserID) REFERENCES Users(UserID), -- FK reference to Users table
