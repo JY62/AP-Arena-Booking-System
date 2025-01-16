@@ -1,12 +1,12 @@
 -- Table Generation
 CREATE TABLE Participants (
-    ParticipantID VARCHAR(8) PRIMARY KEY,  
-    BookingID VARCHAR(8) NOT NULL,         
+    ParticipantID VARCHAR(8) PRIMARY KEY CHECK (ParticipantID LIKE 'P%' AND LEN(ParticipantID) = 8),  
+    BookingID VARCHAR(8) NOT NULL CHECK (BookingID LIKE 'B%' AND LEN(BookingID) = 8),         
     FullName VARCHAR(100) NOT NULL,        
-    Email VARCHAR(100) NOT NULL UNIQUE,    
-    PhoneNumber VARCHAR(15),               
+    Email VARCHAR(100) NOT NULL UNIQUE CHECK (Email LIKE '%_@__%.__%'),    
+    PhoneNumber VARCHAR(15) CHECK (PhoneNumber LIKE '+60_________'),               
     Age INT CHECK (Age >= 0 AND Age <= 120), 
-    Gender VARCHAR(10) CHECK (Gender IN ('Male', 'Female', 'Others')), 
+    Gender VARCHAR(10) CHECK (Gender IN ('Male', 'Female')),  -- Only 'Male' or 'Female'
     CONSTRAINT FK_Booking FOREIGN KEY (BookingID) REFERENCES Bookings(BookingID) 
 );
 
