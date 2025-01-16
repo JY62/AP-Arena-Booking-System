@@ -1,12 +1,12 @@
--- Create Tournaments Table
-CREATE TABLE Tournaments (
-    TournamentID VARCHAR(8) PRIMARY KEY,
-    OrganizerID VARCHAR(8),
-    TournamentName VARCHAR(100),
-    StartDateTime DATETIME,
-    EndDateTime DATETIME,
-    CONSTRAINT FK_OrganizerID FOREIGN KEY (OrganizerID) REFERENCES TournamentOrganizer(OrganizerID)
+CREATE TABLE Tournament (
+    TournamentID VARCHAR(8) PRIMARY KEY CHECK (TournamentID LIKE 'F%' AND LEN(TournamentID) = 8), -- Prefix 'F' and 8 characters long
+    OrganizerID VARCHAR(8) NOT NULL CHECK (OrganizerID LIKE 'TO%' AND LEN(OrganizerID) = 8), -- 'TO' prefix for Tournament Organizer
+    TournamentName VARCHAR(100) NOT NULL, -- Name of the Tournament
+    StartDateTime DATETIME NOT NULL, -- Start date and time of the tournament
+    EndDateTime DATETIME NOT NULL, -- End date and time of the tournament
+    FOREIGN KEY (OrganizerID) REFERENCES Users(UserID) -- References OrganizerID in Users table
 );
+
 
 -- Create TournamentsHistory Table
 CREATE TABLE TournamentsHistory (
@@ -54,21 +54,21 @@ VALUES
 ('F005', 'TO005', 'Swimming Event', '2025-06-01 06:00:00', '2025-06-01 14:00:00');
 GO
 
--- Create Bookings Table
-CREATE TABLE Bookings (
-    BookingID VARCHAR(8) PRIMARY KEY,
-    FacilityID VARCHAR(8),
-    UserID VARCHAR(8),
-    BookingType VARCHAR(20),
-    TournamentID VARCHAR(8) NULL,
-    StartDateTime DATETIME,
-    EndDateTime DATETIME,
-    TotalAmountOfPeople INT NULL,
-    BookingStatus VARCHAR(20),
-    CONSTRAINT FK_FacilityID FOREIGN KEY (FacilityID) REFERENCES Facilities(FacilityID),
-    CONSTRAINT FK_UserID FOREIGN KEY (UserID) REFERENCES Users(UserID),
-    CONSTRAINT FK_TournamentID FOREIGN KEY (TournamentID) REFERENCES Tournaments(TournamentID)
+CREATE TABLE Booking (
+    BookingID VARCHAR(8) PRIMARY KEY CHECK (BookingID LIKE 'APA%' AND LEN(BookingID) = 8), -- Prefix 'APA' and 8 characters long
+    FacilityID VARCHAR(8) NOT NULL CHECK (FacilityID LIKE 'F%' AND LEN(FacilityID) = 8), -- 'F' prefix for FacilityID
+    UserID VARCHAR(8) NOT NULL CHECK (UserID LIKE 'DA%' OR UserID LIKE 'CM%' OR UserID LIKE 'TO%' OR UserID LIKE 'IC%' AND LEN(UserID) = 8), -- Prefixes for users
+    BookingType VARCHAR(20) CHECK (BookingType IN ('Tournament', 'Individual')), -- Validates that the type is either 'Tournament' or 'Individual'
+    TournamentID VARCHAR(8) NULL CHECK (TournamentID LIKE 'F%' AND LEN(TournamentID) = 8), -- 'F' prefix for TournamentID, Null if BookingType = Individual
+    StartDateTime DATETIME NOT NULL, -- Start date and time of the booking
+    EndDateTime DATETIME NOT NULL, -- End date and time of the booking
+    TotalAmountOfPeople INT NULL, -- Total number of people in the booking, Null if 'BookingType' = Individual
+    BookingStatus VARCHAR(20) CHECK (BookingStatus IN ('Approved', 'Pending', 'Rejected')), -- Validates the booking status
+    FOREIGN KEY (FacilityID) REFERENCES Facilities(FacilityID), -- FK reference to Facilities table
+    FOREIGN KEY (UserID) REFERENCES Users(UserID), -- FK reference to Users table
+    FOREIGN KEY (TournamentID) REFERENCES Tournaments(TournamentID) -- FK reference to Tournaments table
 );
+
 
 -- Create BookingsHistory Table
 CREATE TABLE BookingsHistory (
