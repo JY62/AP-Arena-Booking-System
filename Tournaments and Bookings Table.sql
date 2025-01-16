@@ -47,11 +47,11 @@ GO
 -- Insert Sample Data into Tournaments
 INSERT INTO Tournaments (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime)
 VALUES 
-('T001', 'ORG001', 'Chess Championship', '2025-02-01 09:00:00', '2025-02-05 18:00:00'),
-('T002', 'ORG002', 'Soccer Tournament', '2025-03-10 10:00:00', '2025-03-15 20:00:00'),
-('T003', 'ORG003', 'Basketball League', '2025-04-01 08:00:00', '2025-04-10 19:00:00'),
-('T004', 'ORG004', 'Badminton Open', '2025-05-05 09:30:00', '2025-05-08 17:30:00'),
-('T005', 'ORG005', 'Marathon Event', '2025-06-01 06:00:00', '2025-06-01 14:00:00');
+('F001', 'TO001', 'Basketball Championship', '2025-02-01 09:00:00', '2025-02-05 18:00:00'),
+('F002', 'TO002', 'Volleyball Tournament', '2025-03-10 10:00:00', '2025-03-15 20:00:00'),
+('F003', 'TO003', 'Squash League', '2025-04-01 08:00:00', '2025-04-10 19:00:00'),
+('F004', 'TO004', 'Badminton Open', '2025-05-05 09:30:00', '2025-05-08 17:30:00'),
+('F005', 'TO005', 'Swimming Event', '2025-06-01 06:00:00', '2025-06-01 14:00:00');
 GO
 
 -- Create Bookings Table
@@ -113,9 +113,9 @@ GO
 -- Insert Sample Data into Bookings
 INSERT INTO Bookings (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus)
 VALUES 
-('B001', 'FAC001', 'USR001', 'Training', 'T001', '2025-01-20 10:00:00', '2025-01-20 12:00:00', 10, 'Confirmed'),
-('B002', 'FAC002', 'USR002', 'Event', 'T002', '2025-01-25 09:00:00', '2025-01-25 15:00:00', 50, 'Confirmed'),
-('B003', 'FAC003', 'USR003', 'Match', 'T003', '2025-01-30 14:00:00', '2025-01-30 18:00:00', 20, 'Pending'),
-('B004', 'FAC004', 'USR004', 'Workshop', NULL, '2025-02-05 13:00:00', '2025-02-05 16:00:00', 15, 'Cancelled'),
-('B005', 'FAC005', 'USR005', 'Seminar', NULL, '2025-02-10 09:00:00', '2025-02-10 12:00:00', 30, 'Confirmed');
+('APA001', 'FAC001', 'TO001', 'Training', 'F001', '2025-01-20 10:00:00', '2025-01-20 12:00:00', 10, 'Confirmed'),
+('APA002', 'FAC002', 'TO002', 'Event', 'F002', '2025-01-25 09:00:00', '2025-01-25 15:00:00', 50, 'Confirmed'),
+('APA003', 'FAC003', 'TO003', 'Match', 'F003', '2025-01-30 14:00:00', '2025-01-30 18:00:00', 20, 'Pending'),
+('APA004', 'FAC004', 'TO004', 'Workshop', 'F004', '2025-02-05 13:00:00', '2025-02-05 16:00:00', 15, 'Cancelled'),
+('APA005', 'FAC005', 'TO005', 'Seminar', 'F005', '2025-02-10 09:00:00', '2025-02-10 12:00:00', 30, 'Confirmed');
 GO
