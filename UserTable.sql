@@ -14,14 +14,6 @@ CREATE TABLE [User] (
     PhoneNumber VARCHAR(15) CHECK (PhoneNumber LIKE '+60%'), -- Follow Malaysia country code (+60)
     RegistrationDate DATETIME,
     Status VARCHAR(20) CHECK (Status IN ('Active', 'Inactive')), -- Must be either status
-	-- Temporal columns for auditing (system versioning)
-    ValidFrom DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
-	ValidTo DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL,
-    -- Enabling system versioning
-    PERIOD FOR SYSTEM_TIME (ValidFrom, ValidTo))
-
-	WITH (SYSTEM_VERSIONING = ON 
-	(HISTORY_TABLE = dbo.UserHistory)
 );
 
 -- Add dynamic masking for sensitive attributes
@@ -36,6 +28,46 @@ ALTER TABLE [User]
 
 ALTER TABLE [User]
     ALTER COLUMN PhoneNumber ADD MASKED WITH (FUNCTION = 'partial(0,"+60",0)');
+
+-- Logging DML Changes on User Table
+CREATE TABLE UsersHistory (
+    HistoryID INT IDENTITY PRIMARY KEY,
+    UserID VARCHAR(8),
+    UserType VARCHAR(50),
+    FullName VARCHAR(100),
+    Email VARCHAR(100),
+    PasswordHash VARBINARY(255),
+    PhoneNumber VARCHAR(15),
+    RegistrationDate DATETIME,
+    Status VARCHAR(20),
+    OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
+    ChangeDate DATETIME DEFAULT GETDATE()
+);
+GO
+
+CREATE TRIGGER trg_User_Audit
+ON [User]
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    -- Log inserted records (INSERT)
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
+    SELECT UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, 'INSERT'
+    FROM inserted;
+
+    -- Log updated records (UPDATE)
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
+    SELECT i.UserID, i.UserType, i.FullName, i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, i.Status, 'UPDATE'
+    FROM inserted i
+    JOIN deleted d ON i.UserID = d.UserID
+    WHERE i.UserID IS NOT NULL;
+
+    -- Log deleted records (DELETE)
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
+    SELECT UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, 'DELETE'
+    FROM deleted;
+END;
+GO
 
 
 
