@@ -1,5 +1,5 @@
 CREATE TABLE Tournament (
-    TournamentID VARCHAR(8) PRIMARY KEY CHECK (TournamentID LIKE 'F%' AND LEN(TournamentID) = 8), -- Prefix 'F' and 8 characters long
+    TournamentID VARCHAR(8) PRIMARY KEY CHECK (TournamentID LIKE 'T%' AND LEN(TournamentID) = 8), -- Prefix 'F' and 8 characters long
     OrganizerID VARCHAR(8) NOT NULL CHECK (OrganizerID LIKE 'TO%' AND LEN(OrganizerID) = 8), -- 'TO' prefix for Tournament Organizer
     TournamentName VARCHAR(100) NOT NULL, -- Name of the Tournament
     StartDateTime DATETIME NOT NULL, -- Start date and time of the tournament
