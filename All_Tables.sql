@@ -192,6 +192,7 @@ CREATE TABLE Tournaments (
     TournamentName VARCHAR(100) NOT NULL, 
     StartDateTime DATETIME NOT NULL, -- Start date and time of the tournament
     EndDateTime DATETIME NOT NULL, -- End date and time of the tournament
+    ApprovalStatus VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Rejected')),
     FOREIGN KEY (OrganizerID) REFERENCES TournamentOrganizer(OrganizerID) -- References OrganizerID in Users table
 );
 
@@ -207,6 +208,7 @@ CREATE TABLE TournamentsHistory (
     TournamentName VARCHAR(100),
     StartDateTime DATETIME,
     EndDateTime DATETIME,
+	ApprovalStatus VARCHAR(20),
     OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
     ChangeDate DATETIME DEFAULT GETDATE()
 );
@@ -219,19 +221,19 @@ AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     -- Log inserted records (INSERT)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, OperationType)
-    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, 'INSERT'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
+    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, OperationType)
-    SELECT i.TournamentID, i.OrganizerID, i.TournamentName, i.StartDateTime, i.EndDateTime, 'UPDATE'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
+    SELECT i.TournamentID, i.OrganizerID, i.TournamentName, i.StartDateTime, i.EndDateTime, i.ApprovalStatus, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.TournamentID = d.TournamentID;
 
     -- Log deleted records (DELETE)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, OperationType)
-    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, 'DELETE'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
+    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, 'DELETE'
     FROM deleted;
 END;
 GO
@@ -242,11 +244,10 @@ CREATE TABLE Bookings (
     FacilityID VARCHAR(8) NOT NULL CHECK (FacilityID LIKE 'F%'), -- 'F' prefix for FacilityID
     UserID VARCHAR(8) NOT NULL CHECK (UserID LIKE 'DA%' OR UserID LIKE 'CM%' OR UserID LIKE 'TO%' OR UserID LIKE 'IC%'), -- Prefixes for users
     BookingType VARCHAR(20) CHECK (BookingType IN ('Tournament', 'Individual')), -- Validates either 'Tournament' or 'Individual'
-    TournamentID VARCHAR(8) NULL, -- Removed the problematic CHECK constraint
+    TournamentID VARCHAR(8) NULL,
     StartDateTime DATETIME NOT NULL, 
     EndDateTime DATETIME NOT NULL, 
     TotalAmountOfPeople INT NOT NULL, 
-    BookingStatus VARCHAR(20) NOT NULL CHECK (BookingStatus IN ('Approved', 'Pending', 'Rejected')),
     FOREIGN KEY (FacilityID) REFERENCES Facility(FacilityID), 
     FOREIGN KEY (UserID) REFERENCES [User](UserID), 
     FOREIGN KEY (TournamentID) REFERENCES Tournaments(TournamentID)
@@ -293,7 +294,6 @@ CREATE TABLE BookingsHistory (
     StartDateTime DATETIME,
     EndDateTime DATETIME,
     TotalAmountOfPeople INT NULL,
-    BookingStatus VARCHAR(20),
     OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
     ChangeDate DATETIME DEFAULT GETDATE()
 );
@@ -306,19 +306,19 @@ AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     -- Log inserted records (INSERT)
-    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus, OperationType)
-    SELECT BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus, 'INSERT'
+    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, OperationType)
+    SELECT BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus, OperationType)
-    SELECT i.BookingID, i.FacilityID, i.UserID, i.BookingType, i.TournamentID, i.StartDateTime, i.EndDateTime, i.TotalAmountOfPeople, i.BookingStatus, 'UPDATE'
+    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, OperationType)
+    SELECT i.BookingID, i.FacilityID, i.UserID, i.BookingType, i.TournamentID, i.StartDateTime, i.EndDateTime, i.TotalAmountOfPeople, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.BookingID = d.BookingID;
 
     -- Log deleted records (DELETE)
-    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus, OperationType)
-    SELECT BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, BookingStatus, 'DELETE'
+    INSERT INTO BookingsHistory (BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, OperationType)
+    SELECT BookingID, FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople, 'DELETE'
     FROM deleted;
 END;
 GO
@@ -395,4 +395,3 @@ BEGIN
 	'DELETE'FROM deleted;
 END;
 GO
-
