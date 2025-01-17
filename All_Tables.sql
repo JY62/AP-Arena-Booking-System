@@ -84,7 +84,7 @@ CREATE TABLE TournamentOrganizer (
         BusinessRegistrationNumber LIKE '[1-9][0-9][0-9][0-9][0][1-6][0-9][0-9][0-9][0-9][0-9][0-9]'
     ), 
 	Address VARBINARY(255) NOT NULL,
-	ApprovalStatus VARCHAR(20) NOT NULL CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Denied')),
+	ApprovalStatus VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Denied')),
 	CONSTRAINT FK_Organizer_User FOREIGN KEY (OrganizerID) REFERENCES [User](UserID)
 );
 GO
@@ -192,7 +192,7 @@ CREATE TABLE Tournaments (
     TournamentName VARCHAR(100) NOT NULL, 
     StartDateTime DATETIME NOT NULL, -- Start date and time of the tournament
     EndDateTime DATETIME NOT NULL, -- End date and time of the tournament
-    ApprovalStatus VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Rejected')),
+	ApprovalStatus VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Rejected')),
     FOREIGN KEY (OrganizerID) REFERENCES TournamentOrganizer(OrganizerID) -- References OrganizerID in Users table
 );
 
