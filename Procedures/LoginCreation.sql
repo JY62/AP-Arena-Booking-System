@@ -51,6 +51,8 @@ BEGIN
 END;
 GO
 
+GRANT EXECUTE ON OBJECT::dbo.CreateLogin TO DataAdmin;
+
 -- Steps to test CreateLogin and CreateAccount
 -- Create the sequence object for generating unique numeric IDs (Run only once)
 CREATE SEQUENCE dbo.DataAdminSequence AS INT START WITH 1 INCREMENT BY 1;
