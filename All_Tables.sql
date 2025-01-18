@@ -18,7 +18,6 @@ CREATE TABLE [User] (
     PasswordHash VARBINARY(255) NOT NULL,
     PhoneNumber VARCHAR(15) NOT NULL CHECK (PhoneNumber LIKE '+60%'), -- Follow Malaysia country code (+60)
     RegistrationDate DATETIME DEFAULT GETDATE(),
-    Status VARCHAR(20) NOT NULL CHECK (Status IN ('Active', 'Inactive')), -- Must be either status
 );
 
 -- Add dynamic masking for sensitive attributes
@@ -41,7 +40,6 @@ CREATE TABLE UsersHistory (
     PasswordHash VARBINARY(255),
     PhoneNumber VARCHAR(15),
     RegistrationDate DATETIME,
-    Status VARCHAR(20),
     OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
     ChangeDate DATETIME DEFAULT GETDATE()
 );
@@ -54,20 +52,20 @@ AS
 BEGIN
 	-- Open the symmetric key for encryption and decryption
     -- Log inserted records (INSERT)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
-    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, Status, 'INSERT'
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
-    SELECT i.UserID, i.UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.FullName), i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, i.Status, 'UPDATE'
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    SELECT i.UserID, i.UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.FullName), i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.UserID = d.UserID
     WHERE i.UserID IS NOT NULL;
 
     -- Log deleted records (DELETE)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, Status, OperationType)
-    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, Status, 'DELETE'
+    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'DELETE'
     FROM deleted;
 
     -- Close the symmetric key
