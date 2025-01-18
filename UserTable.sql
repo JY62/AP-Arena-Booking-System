@@ -238,7 +238,7 @@ GO
 
 -- Create Booking Table
 CREATE TABLE Bookings (
-    BookingID VARCHAR(8) PRIMARY KEY CHECK (BookingID LIKE 'APA%'), -- Prefix 'APA' 
+    BookingID VARCHAR(8) PRIMARY KEY CHECK (BookingID LIKE 'B%'), -- Prefix 'B' 
     FacilityID VARCHAR(8) NOT NULL CHECK (FacilityID LIKE 'F%'), -- 'F' prefix for FacilityID
     UserID VARCHAR(8) NOT NULL CHECK (UserID LIKE 'DA%' OR UserID LIKE 'CM%' OR UserID LIKE 'TO%' OR UserID LIKE 'IC%'), -- Prefixes for users
     BookingType VARCHAR(20) CHECK (BookingType IN ('Tournament', 'Individual')), -- Validates either 'Tournament' or 'Individual'
@@ -393,4 +393,3 @@ BEGIN
 	'DELETE'FROM deleted;
 END;
 GO
-
