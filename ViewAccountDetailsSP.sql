@@ -1,129 +1,129 @@
-CREATE PROCEDURE ViewAccountDetails
-    @UserID NVARCHAR(50),
+this is my entire code but it still returns with the access denied message:
+
+-- Create the ViewAccountDetails2 procedure
+CREATE PROCEDURE ViewAccountDetails2
     @TableName NVARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @Role NVARCHAR(50) = LEFT(@UserID, 2)
-    
+    -- Detect the current SQL Server login's username
+    DECLARE @LoginName NVARCHAR(50) = SUSER_SNAME(); -- Get the current login name
+    DECLARE @UserID NVARCHAR(50);
+
+    -- Look up the UserID based on the current login name
+    SELECT @UserID = UserID 
+    FROM [User] 
+    WHERE UserID = @LoginName;  -- Match login name with UserID
+
+    -- If no matching UserID found, return an error message
+    IF @UserID IS NULL
+    BEGIN
+        SELECT 'Access Denied: No matching UserID found for the login.' AS Message;
+        RETURN;
+    END
+
+    DECLARE @Role NVARCHAR(50) = LEFT(@UserID, 2);
+
+    -- Open keys for decryption
+    OPEN SYMMETRIC KEY UserKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
+    OPEN SYMMETRIC KEY ParticipantKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
+
+    -- Handle [User] table
     IF @TableName = 'User'
     BEGIN
         IF @Role IN ('DA', 'TO', 'IC')
         BEGIN
-            -- View own details in User table
-            SELECT UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate
-            FROM [User]
-            WHERE UserID = @UserID
-        END
-        ELSE IF @Role = 'CM'
-        BEGIN
-            -- View all details in User table, hide sensitive information for others
             SELECT 
                 UserID, 
-                UserType,
-                CASE 
-                    WHEN UserID = @UserID THEN FullName ELSE 'Hidden' 
-                END AS FullName,
-                CASE 
-                    WHEN UserID = @UserID THEN Email ELSE 'Hidden' 
-                END AS Email,
-				CASE 
-                    WHEN UserID = @UserID THEN PasswordHash ELSE 'Hidden' 
-                END AS PasswordHash,
-                CASE 
-                    WHEN UserID = @UserID THEN PhoneNumber ELSE 'Hidden' 
-                END AS PhoneNumber,
+                UserType, 
+                CONVERT(VARCHAR(255), DECRYPTBYKEY(FullName)) AS FullName, -- Decrypt FullName
+                Email, 
+                PasswordHash, -- Return the hashed password
+                PhoneNumber, 
                 RegistrationDate
             FROM [User]
+            WHERE UserID = @UserID;
         END
         ELSE
         BEGIN
-            SELECT 'Access Denied' AS Message
+            SELECT 'Access Denied' AS Message;
         END
     END
+    -- Handle [TournamentOrganizer] table
     ELSE IF @TableName = 'TournamentOrganizer'
     BEGIN
         IF @Role = 'TO'
         BEGIN
-            -- View own details in TournamentOrganizer table
-            SELECT OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus
-            FROM TournamentOrganizer
-            WHERE OrganizerID = @UserID
-        END
-        ELSE IF @Role = 'CM'
-        BEGIN
-            -- View all details in TournamentOrganizer table, hide sensitive information for others
             SELECT 
-                OrganizerID,
-                CASE 
-                    WHEN OrganizerID = @UserID THEN BusinessName ELSE 'Hidden' 
-                END AS BusinessName,
-                CASE 
-                    WHEN OrganizerID = @UserID THEN BusinessRegistrationNumber ELSE 'Hidden' 
-                END AS BusinessRegistrationNumber,
-                Address,
+                OrganizerID, 
+                CONVERT(VARCHAR(255), DECRYPTBYKEY(BusinessName)) AS BusinessName, -- Decrypt BusinessName
+                BusinessRegistrationNumber, 
+                CONVERT(VARCHAR(255), DECRYPTBYKEY(Address)) AS Address, -- Decrypt Address
                 ApprovalStatus
             FROM TournamentOrganizer
+            WHERE OrganizerID = @UserID;
         END
         ELSE
         BEGIN
-            SELECT 'Access Denied' AS Message
+            SELECT 'Access Denied' AS Message;
         END
     END
+    -- Handle [Participants] table
     ELSE IF @TableName = 'Participants'
     BEGIN
-        IF @Role IN ('TO', 'IC')
+        IF @Role IN ('DA', 'TO', 'IC')
         BEGIN
-            -- View own details in Participants table
-            SELECT ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender
-            FROM Participants
-            WHERE ParticipantID = @UserID
-        END
-        ELSE IF @Role = 'CM'
-        BEGIN
-            -- View all details in Participants table, hide sensitive information for others
             SELECT 
-                ParticipantID, BookingID, 
-                CASE 
-                    WHEN ParticipantID = @UserID THEN FullName ELSE 'Hidden' 
-                END AS FullName,
-                CASE 
-                    WHEN ParticipantID = @UserID THEN Email ELSE 'Hidden' 
-                END AS Email,
-                CASE 
-                    WHEN ParticipantID = @UserID THEN PhoneNumber ELSE 'Hidden' 
-                END AS PhoneNumber,
-                Age, Gender
-            FROM Participants
+                p.ParticipantID, 
+                p.BookingID, 
+                CONVERT(VARCHAR(255), DECRYPTBYKEY(p.FullName)) AS FullName, -- Decrypt FullName
+                p.Email, 
+                p.PhoneNumber, 
+                p.Age, 
+                p.Gender
+            FROM Participants p
+            INNER JOIN Bookings b ON p.BookingID = b.BookingID
+            WHERE b.UserID = @UserID;
         END
         ELSE
         BEGIN
-            SELECT 'Access Denied' AS Message
+            SELECT 'Access Denied' AS Message;
         END
     END
     ELSE
     BEGIN
-        SELECT 'Invalid Table Name' AS Message
+        SELECT 'Invalid Table Name' AS Message;
     END
-END
 
---Test as DA
-EXEC ViewAccountDetails @UserID = 'DA001', @TableName = 'User';
-EXEC ViewAccountDetails @UserID = 'DA001', @TableName = 'TournamentOrganizer';
-EXEC ViewAccountDetails @UserID = 'DA001', @TableName = 'Participants';
+    -- Close symmetric keys after decryption
+    CLOSE SYMMETRIC KEY UserKey;
+    CLOSE SYMMETRIC KEY ParticipantKey;
+END;
 
---Test as CM
-EXEC ViewAccountDetails @UserID = 'CM001', @TableName = 'User';
-EXEC ViewAccountDetails @UserID = 'CM001', @TableName = 'TournamentOrganizer';
-EXEC ViewAccountDetails @UserID = 'CM001', @TableName = 'Participants';
 
---Test as TO
-EXEC ViewAccountDetails @UserID = 'TO001', @TableName = 'User';
-EXEC ViewAccountDetails @UserID = 'TO001', @TableName = 'TournamentOrganizer';
-EXEC ViewAccountDetails @UserID = 'TO001', @TableName = 'Participants';
+-- Testing
+-- Create the DataAdmin role
+CREATE ROLE DataAdmin;
 
---Test as IC
-EXEC ViewAccountDetails @UserID = 'IC001', @TableName = 'User';
-EXEC ViewAccountDetails @UserID = 'IC001', @TableName = 'TournamentOrganizer';
-EXEC ViewAccountDetails @UserID = 'IC001', @TableName = 'Participants';
+-- Create the DA001 login and user
+CREATE LOGIN DA001 WITH PASSWORD = 'yourpassword';  -- Replace with actual password
+CREATE USER DA001 FOR LOGIN DA001;
+
+-- Add DA001 user to the DataAdmin role
+EXEC sp_addrolemember 'DataAdmin', 'DA001';
+
+-- Grant EXECUTE permission on the procedure to the DataAdmin role
+GRANT EXECUTE ON dbo.ViewAccountDetails2 TO DataAdmin;
+
+GRANT SELECT ON dbo.[User] TO DataAdmin;
+
+-- Grant control on the symmetric keys to the DataAdmin role
+GRANT CONTROL ON SYMMETRIC KEY::UserKey TO DataAdmin;
+GRANT CONTROL ON SYMMETRIC KEY::ParticipantKey TO DataAdmin;
+
+-- Log in as DA001 and execute the procedure
+EXECUTE AS USER = 'DA001';
+EXEC ViewAccountDetails2 @TableName = 'User';
+
+REVERT;
