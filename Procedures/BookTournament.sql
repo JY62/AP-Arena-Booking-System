@@ -1,6 +1,7 @@
+-- BookTournament Procedure 
 CREATE PROCEDURE BookTournament
     @UserID NVARCHAR(50),          
-    @TournamentID NVARCHAR(8)        
+    @TournamentID NVARCHAR(8)               
 AS
 BEGIN
     -- Validate if the tournament exists and is approved
@@ -13,28 +14,63 @@ BEGIN
         RETURN;
     END
 
-    -- Declare other variables
+    -- Allow Tournament Organizer to view available tournaments
+    SELECT TournamentID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus
+    FROM Tournaments
+    WHERE ApprovalStatus = 'Approved';
+
+    -- Declare other variables for booking details
     DECLARE @FacilityID NVARCHAR(8);
     DECLARE @BookingType NVARCHAR(50);
     DECLARE @StartDateTime DATETIME;
     DECLARE @EndDateTime DATETIME;
     DECLARE @TotalAmountOfPeople INT;
 
-    -- Example logic for assigning facility and other details (you can modify based on your requirements)
-    -- Assuming that we have some logic to assign FacilityID, BookingType, StartDateTime, EndDateTime, and TotalAmountOfPeople
-    SET @FacilityID = 'F1'; 
-    SET @BookingType = 'Tournament'; -- Example BookingType
-    SET @StartDateTime = GETDATE(); -- Example StartDateTime, modify as needed
-    SET @EndDateTime = DATEADD(HOUR, 3, @StartDateTime); -- Example EndDateTime, 3 hours after StartDateTime
-    SET @TotalAmountOfPeople = 50; -- Example TotalAmountOfPeople, modify as needed
+    -- Example logic for assigning facility and other details
+    SET @FacilityID = 'F1'; -- Example FacilityID
+    SET @BookingType = 'Tournament'; 
+    SET @StartDateTime = GETDATE(); 
+    SET @EndDateTime = DATEADD(HOUR, 3, @StartDateTime); 
+    SET @TotalAmountOfPeople = 100;
 
-    -- Create a new booking in the Bookings table
+    -- Check if the user has already booked the tournament
+    IF EXISTS (SELECT 1 FROM Bookings WHERE TournamentID = @TournamentID AND UserID = @UserID)
+    BEGIN
+        RAISERROR('You have already booked this tournament.', 16, 1);
+        RETURN;
+    END
+
+    -- Insert the booking if the user hasn't booked it yet
     INSERT INTO Bookings (FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople)
     VALUES (@FacilityID, @UserID, @BookingType, @TournamentID, @StartDateTime, @EndDateTime, @TotalAmountOfPeople);
+
+    PRINT 'Tournament booked successfully.';
 END;
 
 
--- Valid EXEC
-EXEC BookTournament @UserID = 'TO001', @TournamentID = 'T001';
--- Invalid tournament ID
-EXEC BookTournament @UserID = 'TO001', @TournamentID = 'T007';
+
+-- Create role for Tournament Organizer
+CREATE ROLE TournamentOrganizer;
+
+-- Create login for Tournament Organizer
+CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  
+CREATE USER TO001 FOR LOGIN TO001;
+
+-- Add user to Tournament Organizer role
+EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
+
+-- Grant permissions on BookTournament to TournamentOrganizer
+GRANT EXECUTE ON dbo.BookTournament TO TournamentOrganizer;
+GRANT SELECT ON dbo.BookTournament TO TournamentOrganizer;
+
+-- Valid EXEC (Tournament Organizer can book a tournament)
+EXECUTE AS USER = 'TO001';
+EXEC BookTournament @UserID = 'TO001', @TournamentID = T001;
+REVERT;
+
+-- Invalid EXEC (Non-Tournament Organizer trying to book a tournament)
+EXECUTE AS USER = 'DA001';
+EXEC BookTournament @UserID = 'TO001', @TournamentID = 1;
+REVERT;
+
+drop procedure BookTournament
