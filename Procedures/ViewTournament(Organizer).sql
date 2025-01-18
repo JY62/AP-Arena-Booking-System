@@ -1,15 +1,29 @@
-CREATE PROCEDURE ViewTournament_Organizer ()
+-- ViewTournament (Tournament Organizer)
+CREATE PROCEDURE ViewTournament_Organizer
+AS
 BEGIN
-    -- Return tournaments that belong to the organizer
-    SELECT * 
-    FROM Tournament 
-    WHERE OrganizerID = @UserID;
+    PRINT 'Tournaments under your ID:';
+    SELECT TournamentID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus
+    FROM Tournaments
+    WHERE OrganizerID = SYSTEM_USER;
 END;
 
--- Valid EXEC
-SET @UserID = 'TO789';
-CALL ViewTournament_Organizer();
+--Create role
+CREATE ROLE TournamentOrganizer;
 
--- Invalid organizer with no tournaments
-SET @UserID = 'TO999';
-CALL ViewTournament_Organizer();
+-- Create login for Tournament Organizer
+CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  
+CREATE USER TO001 FOR LOGIN TO001;
+
+-- Add user to Tournament Organizer role
+EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
+
+-- Role and Permissions
+GRANT SELECT ON dbo.Tournaments TO TournamentOrganizer;
+GRANT EXECUTE ON dbo.ViewTournament_Organizer TO TournamentOrganizer;
+
+-- Valid EXEC
+EXEC ViewTournament_Organizer;
+REVERT;
+
+DROP PROCEDURE ViewTournament_Organizer;
