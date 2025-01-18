@@ -1,29 +1,37 @@
--- ViewTournament (Tournament Organizer)
+--Create the procedure
 CREATE PROCEDURE ViewTournament_Organizer
 AS
 BEGIN
-    PRINT 'Tournaments under your ID:';
-    SELECT TournamentID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus
+    -- Validate the user has the TournamentOrganizer role
+    IF (IS_ROLEMEMBER('TournamentOrganizer') = 0)
+    BEGIN
+        RAISERROR('You do not have the necessary permissions to access this functionality.', 16, 1);
+        RETURN;
+    END
+
+    -- Display tournaments for the logged-in user based on OrganizerID
+    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus
     FROM Tournaments
-    WHERE OrganizerID = SYSTEM_USER;
+    WHERE OrganizerID = SUSER_SNAME(); -- Match OrganizerID with the login name
 END;
 
---Create role
+-- Create the TournamentOrganizer role
 CREATE ROLE TournamentOrganizer;
 
--- Create login for Tournament Organizer
-CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  
+-- Create a login and user for the Tournament Organizer
+CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  -- Replace 'yourpassword' with an actual secure password
 CREATE USER TO001 FOR LOGIN TO001;
 
--- Add user to Tournament Organizer role
+-- Add the user to the TournamentOrganizer role
 EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
 
--- Role and Permissions
-GRANT SELECT ON dbo.Tournaments TO TournamentOrganizer;
-GRANT EXECUTE ON dbo.ViewTournament_Organizer TO TournamentOrganizer;
+-- Grant permissions to the role
+GRANT SELECT ON dbo.Tournaments TO TournamentOrganizer; -- Allow viewing tournaments
+GRANT EXECUTE ON dbo.ViewTournament_Organizer TO TournamentOrganizer; -- Allow executing the procedure
 
--- Valid EXEC
-EXEC ViewTournament_Organizer;
+-- Valid execution as a Tournament Organizer
+EXECUTE AS USER = 'TO001'; -- Switch to the Tournament Organizer user
+EXEC ViewTournament_Organizer; -- Execute the procedure
 REVERT;
 
-DROP PROCEDURE ViewTournament_Organizer;
+drop procedure ViewTournament_Organizer
