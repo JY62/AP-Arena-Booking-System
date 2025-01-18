@@ -39,10 +39,6 @@ EXEC sp_addrolemember 'ComplexManager', 'CM001';
 GRANT SELECT ON dbo.Tournaments TO DataAdmin;
 GRANT SELECT ON dbo.Tournaments TO ComplexManager;
 
--- Grant EXECUTE permission on ViewTournament procedure to both roles
-GRANT EXECUTE ON dbo.ViewTournament TO DataAdmin;
-GRANT EXECUTE ON dbo.ViewTournament TO ComplexManager;
-
 -- Valid EXEC (Complex Manager)
 EXECUTE AS USER = 'CM001';
 EXEC ViewTournament_ManagerAdmin;
