@@ -1,39 +1,59 @@
-CREATE PROCEDURE UpdateBusinessRegistration ()
+-- UpdateBusinessRegistration Procedure
+CREATE PROCEDURE UpdateBusinessRegistration
+    @OrganizerID NVARCHAR(50), -- Input parameter for OrganizerID
+    @ApprovalStatus NVARCHAR(50) -- Input parameter for ApprovalStatus
+AS
 BEGIN
-    -- Validate the role of the user
-    IF LEFT(@UserID, 2) != 'CM' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Only Complex Managers are allowed to update this record.';
-    END IF;
+    -- Step 1: Validate if the ApprovalStatus is one of the allowed values
+    IF @ApprovalStatus NOT IN ('Approved', 'Denied', 'Pending')
+    BEGIN
+        RAISERROR('Invalid ApprovalStatus. Only "Approved", "Denied", or "Pending" are allowed.', 16, 1);
+        RETURN;
+    END
 
-    -- Validate the status
-    IF @ApprovalStatus NOT IN ('Approved', 'Pending', 'Denied') THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Invalid Approval Status. Only Approved, Pending, or Denied are allowed.';
-    END IF;
+    -- Step 2: Display tournament organizer information
+    PRINT 'Available Tournament Organizers for Approval:';
+    SELECT OrganizerID, BusinessName, ApprovalStatus
+    FROM TournamentOrganizer;
 
-    -- Check if the status is the same as the current status
-    IF (SELECT ApprovalStatus FROM TournamentOrganizer WHERE TournamentOrganizerID = @TournamentOrganizerID) = @ApprovalStatus THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'The status is already set to the provided value.';
-    END IF;
+    -- Validate if the OrganizerID exists
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM TournamentOrganizer 
+        WHERE OrganizerID = @OrganizerID
+    )
+    BEGIN
+        RAISERROR('Invalid OrganizerID.', 16, 1);
+        RETURN;
+    END
 
-    -- Update the record
+    -- Step 3: Update ApprovalStatus in TournamentOrganizer table
     UPDATE TournamentOrganizer
     SET ApprovalStatus = @ApprovalStatus
-    WHERE TournamentOrganizerID = @TournamentOrganizerID;
+    WHERE OrganizerID = @OrganizerID;
+
+    PRINT 'Business registration status updated successfully for OrganizerID: ' + @OrganizerID;
 END;
 
--- valid EXEC
-SET @UserID = 'CM123';
-SET @TournamentOrganizerID = 5;
-SET @ApprovalStatus = 'Approved';
-CALL UpdateBusinessRegistration();
+-- Role and Permissions
+CREATE ROLE ComplexManager;
 
+CREATE LOGIN CM001 WITH PASSWORD = 'yourpassword'; -- Replace with actual password
+CREATE USER CM001 FOR LOGIN CM001;
 
--- invalid EXEC
--- Invalid role
-SET @UserID = 'TO456';
-SET @TournamentOrganizerID = 5;
-SET @ApprovalStatus = 'Approved';
-CALL UpdateBusinessRegistration();
+EXEC sp_addrolemember 'ComplexManager', 'CM001';
+
+GRANT SELECT, UPDATE ON dbo.TournamentOrganizer TO ComplexManager;
+GRANT EXECUTE ON dbo.UpdateBusinessRegistration TO ComplexManager;
+
+-- Valid EXEC (Complex Manager updating ApprovalStatus)
+EXECUTE AS USER = 'CM001';
+EXEC UpdateBusinessRegistration @OrganizerID = 'TO001', @ApprovalStatus = 'Approved';
+REVERT;
+
+-- Invalid EXEC (Tournament Organizer cannot update)
+EXECUTE AS USER = 'TO001';
+EXEC UpdateBusinessRegistration @OrganizerID = 'TO001', @ApprovalStatus = 'Approved';
+REVERT;
+
+DROP PROCEDURE UpdateBusinessRegistration;
