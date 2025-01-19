@@ -66,9 +66,22 @@ GO
 
 -- Grant EXECUTE permission on the CreateAccount procedure to all roles
 GRANT EXECUTE ON OBJECT::dbo.CreateAccount TO DataAdmin;
+GRANT EXECUTE ON OBJECT::dbo.CreateAccount TO ComplexManager;
 GRANT EXECUTE ON OBJECT::dbo.CreateAccount TO TournamentOrganizer;
 GRANT EXECUTE ON OBJECT::dbo.CreateAccount TO IndividualCustomer;
 GO
+
+-- GRANT OPEN permission on the symmetric key for encryption and decryption
+GRANT CONTROL ON SYMMETRIC KEY::UserKey TO [DataAdmin];
+GRANT CONTROL ON SYMMETRIC KEY::UserKey TO [ComplexManager];
+GRANT CONTROL ON SYMMETRIC KEY::UserKey TO [TournamentOrganizer];
+GRANT CONTROL ON SYMMETRIC KEY::UserKey TO [IndividualCustomer];
+
+-- GRANT REFERENCES permission on the Symmetric Key
+GRANT UNMASK TO [DataAdmin];
+GRANT UNMASK TO [ComplexManager];
+GRANT UNMASK TO [TournamentOrganizer];
+GRANT UNMASK TO [IndividualCustomer];
 
 -- Switch context to the new login (Generated from Login Creation)
 EXECUTE AS LOGIN = 'DA0001';
@@ -78,8 +91,8 @@ SELECT SUSER_NAME() AS CurrentUser, SYSTEM_USER AS SystemUser;
 
 -- Execute the CreateAccount procedure to insert user information
 EXEC CreateAccount 
-    @FullName = 'John Doe', -- Full name of the user
-    @Email = 'johndoe@example.com', -- User's email address
+    @FullName = 'Kane Brown', -- Full name of the user
+    @Email = 'kkrown@example.com', -- User's email address
     @PhoneNumber = '+60123456789', -- User's phone number
 	@Password = 'SecurePassword123!' -- User's password
 
