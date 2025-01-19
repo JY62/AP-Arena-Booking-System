@@ -31,7 +31,7 @@ ALTER TABLE [User]
     ALTER COLUMN PhoneNumber ADD MASKED WITH (FUNCTION = 'partial(0,"+60",0)');
 
 -- Logging DML Changes on User Table
-CREATE TABLE UsersHistory (
+CREATE TABLE UserHistory (
     HistoryID INT IDENTITY PRIMARY KEY,
     UserID VARCHAR(8),
     UserType VARCHAR(50),
@@ -52,19 +52,19 @@ AS
 BEGIN
 	-- Open the symmetric key for encryption and decryption
     -- Log inserted records (INSERT)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
     SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
     SELECT i.UserID, i.UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.FullName), i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.UserID = d.UserID
     WHERE i.UserID IS NOT NULL;
 
     -- Log deleted records (DELETE)
-    INSERT INTO UsersHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
+    INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
     SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'DELETE'
     FROM deleted;
 
@@ -146,7 +146,7 @@ CREATE TABLE Facility (
 );
 GO
 
-CREATE TABLE FacilitiesHistory (
+CREATE TABLE FacilityHistory (
     HistoryID INT IDENTITY PRIMARY KEY,
     FacilityID VARCHAR(8),
     FacilityType VARCHAR(50),
@@ -165,19 +165,19 @@ AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     -- Log inserted records (INSERT)
-    INSERT INTO FacilitiesHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
     SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO FacilitiesHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
     SELECT i.FacilityID, i.FacilityType, i.FacilityName, i.Capacity, i.RatePerHour, i.AvailabilityStatus, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.FacilityID = d.FacilityID
     WHERE i.FacilityID IS NOT NULL;
 
     -- Log deleted records (DELETE)
-    INSERT INTO FacilitiesHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
     SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, 'DELETE'
     FROM deleted;
 END;
