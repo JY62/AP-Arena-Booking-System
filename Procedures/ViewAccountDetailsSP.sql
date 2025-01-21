@@ -1,12 +1,12 @@
-CREATE PROCEDURE ViewAccountDetails
+ALTER PROCEDURE ViewAccountDetails
     @TableName NVARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
 
     -- Detect the current SQL Server login's username
-    DECLARE @LoginName NVARCHAR(50) = SUSER_SNAME(); 
-    DECLARE @UserID NVARCHAR(50);
+    DECLARE @LoginName VARCHAR(8) = SUSER_SNAME(); 
+    DECLARE @UserID VARCHAR(8);
 
     -- Look up the UserID based on the current login name
     -- Modified to handle Windows Authentication format if present
@@ -22,13 +22,11 @@ BEGIN
         RETURN;
     END
 
-    DECLARE @Role NVARCHAR(50) = LEFT(@UserID, 2);
 	--Select @Role AS Role;
-
+    DECLARE @Role NVARCHAR(50) = LEFT(@UserID, 2);
 
     -- Open keys for decryption
     OPEN SYMMETRIC KEY UserKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
-    OPEN SYMMETRIC KEY ParticipantKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
 
     -- Handle [User] table
     IF @TableName = 'User'
@@ -36,32 +34,22 @@ BEGIN
         IF @Role IN ('DA', 'TO', 'IC')
         BEGIN
             SELECT 
-                UserID, 
-                UserType, 
-                CONVERT(VARCHAR(255), DECRYPTBYKEY(FullName)) AS FullName,
-                Email, 
-                PasswordHash,
-                PhoneNumber, 
-                RegistrationDate
+                UserID, UserType, CONVERT(NVARCHAR(255), DecryptByKey(FullName)) AS FullName, Email, PasswordHash, PhoneNumber, RegistrationDate
             FROM [User]
             WHERE UserID = @UserID;  -- Maintains original access control
         END
         ELSE IF @Role = 'CM'
         BEGIN
             SELECT 
-                UserID, 
-                UserType,
+                UserID, UserType,
                 CASE 
-                    WHEN UserID = @UserID THEN CONVERT(VARCHAR(255), DECRYPTBYKEY(FullName)) ELSE 'Hidden' 
+                    WHEN UserID = @UserID THEN CONVERT(NVARCHAR(255), DecryptByKey(FullName)) ELSE '********' 
                 END AS FullName,
                 CASE 
-                    WHEN UserID = @UserID THEN Email ELSE 'Hidden' 
+                    WHEN UserID = @UserID THEN Email ELSE '*****@*****.com' 
                 END AS Email,
                 CASE 
-                    WHEN UserID = @UserID THEN PasswordHash ELSE 'Hidden' 
-                END AS PasswordHash,
-                CASE 
-                    WHEN UserID = @UserID THEN PhoneNumber ELSE 'Hidden' 
+                    WHEN UserID = @UserID THEN PhoneNumber ELSE '+60********' 
                 END AS PhoneNumber,
                 RegistrationDate
             FROM [User];
@@ -109,16 +97,12 @@ BEGIN
     -- Handle [Participants] table
     ELSE IF @TableName = 'Participants'
     BEGIN
+		OPEN SYMMETRIC KEY ParticipantKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
         IF @Role IN ('DA', 'TO', 'IC')
         BEGIN
             SELECT 
-                p.ParticipantID, 
-                p.BookingID, 
-                CONVERT(VARCHAR(255), DECRYPTBYKEY(p.FullName)) AS FullName, -- Decrypt FullName
-                p.Email, 
-                p.PhoneNumber, 
-                p.Age, 
-                p.Gender
+                p.ParticipantID, p.BookingID, CONVERT(VARCHAR(255), DECRYPTBYKEY(p.FullName)) AS FullName, p.Email, 
+                p.PhoneNumber, p.Age, p.Gender
             FROM Participants p
             INNER JOIN Bookings b ON p.BookingID = b.BookingID
             WHERE b.UserID = @UserID;
@@ -126,16 +110,15 @@ BEGIN
         ELSE IF @Role = 'CM'
         BEGIN
             SELECT 
-                p.ParticipantID, 
-                p.BookingID, 
+                p.ParticipantID, p.BookingID, 
                 CASE 
-                    WHEN b.UserID = @UserID THEN CONVERT(VARCHAR(255), DECRYPTBYKEY(p.FullName)) ELSE 'Hidden' 
+                    WHEN b.UserID = @UserID THEN CONVERT(VARCHAR(255), DECRYPTBYKEY(p.FullName)) ELSE '********' 
                 END AS FullName,
                 CASE 
-                    WHEN b.UserID = @UserID THEN p.Email ELSE 'Hidden' 
+                    WHEN b.UserID = @UserID THEN p.Email ELSE '*****@*****.com'  
                 END AS Email,
                 CASE 
-                    WHEN b.UserID = @UserID THEN p.PhoneNumber ELSE 'Hidden' 
+                    WHEN b.UserID = @UserID THEN p.PhoneNumber ELSE '+60********' 
                 END AS PhoneNumber,
                 p.Age, 
                 p.Gender
@@ -146,6 +129,7 @@ BEGIN
         BEGIN
             SELECT 'Access Denied' AS Message;
         END
+		CLOSE SYMMETRIC KEY ParticipantKey;
     END
     ELSE
     BEGIN
@@ -154,7 +138,6 @@ BEGIN
 
     -- Close symmetric keys after decryption
     CLOSE SYMMETRIC KEY UserKey;
-    CLOSE SYMMETRIC KEY ParticipantKey;
 END;
 
 -- User roles and permissions creation
@@ -212,12 +195,12 @@ GRANT CONTROL ON SYMMETRIC KEY::ParticipantKey TO IndividualCustomer;
 EXECUTE AS USER = 'IC001';
 
 -- For the logged-in user, view their own account in the 'User' table
-EXEC ViewAccountDetails2 @TableName = 'User';
+EXEC ViewAccountDetails @TableName = 'User';
 
 -- For the logged-in user, view their own account in the 'TournamentOrganizer' table
-EXEC ViewAccountDetails2 @TableName = 'TournamentOrganizer';
+EXEC ViewAccountDetails @TableName = 'TournamentOrganizer';
 
 -- For the logged-in user, view their own account in the 'Participants' table
-EXEC ViewAccountDetails2 @TableName = 'Participants';
+EXEC ViewAccountDetails @TableName = 'Participants';
 
 REVERT;
