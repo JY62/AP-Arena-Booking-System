@@ -53,26 +53,25 @@ BEGIN
 	-- Open the symmetric key for encryption and decryption
     -- Log inserted records (INSERT)
     INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
-    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'INSERT'
+    SELECT UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
     INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
-    SELECT i.UserID, i.UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.FullName), i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, 'UPDATE'
+    SELECT i.UserID, i.UserType, i.FullName, i.Email, i.PasswordHash, i.PhoneNumber, i.RegistrationDate, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.UserID = d.UserID
     WHERE i.UserID IS NOT NULL;
 
     -- Log deleted records (DELETE)
     INSERT INTO UserHistory (UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, OperationType)
-    SELECT UserID, UserType, ENCRYPTBYKEY(KEY_GUID('UserKey'), FullName), Email, PasswordHash, PhoneNumber, RegistrationDate, 'DELETE'
+    SELECT UserID, UserType, FullName, Email, PasswordHash, PhoneNumber, RegistrationDate, 'DELETE'
     FROM deleted;
 
     -- Close the symmetric key
     --CLOSE SYMMETRIC KEY UserKey;
 END;
 GO
-
 
 -- Creating Tournament Organizer Table
 CREATE TABLE TournamentOrganizer (
@@ -115,12 +114,12 @@ AS
 BEGIN
     -- Log inserted records (INSERT)
     INSERT INTO TournamentOrganizerHistory (OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus, OperationType)
-    SELECT OrganizerID, ENCRYPTBYKEY(KEY_GUID('UserKey'), BusinessName), BusinessRegistrationNumber, ENCRYPTBYKEY(KEY_GUID('UserKey'), Address), ApprovalStatus, 'INSERT'
+    SELECT OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
     INSERT INTO TournamentOrganizerHistory (OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus, OperationType)
-    SELECT i.OrganizerID, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.BusinessName), i.BusinessRegistrationNumber, ENCRYPTBYKEY(KEY_GUID('UserKey'), i.Address), 
+    SELECT i.OrganizerID, i.BusinessName, i.BusinessRegistrationNumber, i.Address, 
 	i.ApprovalStatus, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.OrganizerID = d.OrganizerID
@@ -128,7 +127,7 @@ BEGIN
 
     -- Log deleted records (DELETE)
     INSERT INTO TournamentOrganizerHistory (OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus, OperationType)
-    SELECT OrganizerID, ENCRYPTBYKEY(KEY_GUID('UserKey'), BusinessName), BusinessRegistrationNumber, ENCRYPTBYKEY(KEY_GUID('UserKey'), Address), ApprovalStatus, 'DELETE'
+    SELECT OrganizerID, BusinessName, BusinessRegistrationNumber, Address, ApprovalStatus, 'DELETE'
     FROM deleted;
 END;
 GO
@@ -188,8 +187,6 @@ CREATE TABLE Tournaments (
     TournamentID VARCHAR(8) PRIMARY KEY CHECK (TournamentID LIKE 'T%'), 
     OrganizerID VARCHAR(8) NOT NULL CHECK (OrganizerID LIKE 'TO%'), -- 'TO' prefix for Tournament Organizer
     TournamentName VARCHAR(100) NOT NULL, 
-    StartDateTime DATETIME NOT NULL, -- Start date and time of the tournament
-    EndDateTime DATETIME NOT NULL, -- End date and time of the tournament
 	ApprovalStatus VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (ApprovalStatus IN ('Approved', 'Pending', 'Rejected')),
     FOREIGN KEY (OrganizerID) REFERENCES TournamentOrganizer(OrganizerID) -- References OrganizerID in Users table
 );
@@ -204,8 +201,6 @@ CREATE TABLE TournamentsHistory (
     TournamentID VARCHAR(8),
     OrganizerID VARCHAR(8),
     TournamentName VARCHAR(100),
-    StartDateTime DATETIME,
-    EndDateTime DATETIME,
 	ApprovalStatus VARCHAR(20),
     OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
     ChangeDate DATETIME DEFAULT GETDATE()
@@ -219,19 +214,19 @@ AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     -- Log inserted records (INSERT)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
-    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, 'INSERT'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, ApprovalStatus, OperationType)
+    SELECT TournamentID, OrganizerID, TournamentName, ApprovalStatus, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
-    SELECT i.TournamentID, i.OrganizerID, i.TournamentName, i.StartDateTime, i.EndDateTime, i.ApprovalStatus, 'UPDATE'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, ApprovalStatus, OperationType)
+    SELECT i.TournamentID, i.OrganizerID, i.TournamentName, i.ApprovalStatus, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.TournamentID = d.TournamentID;
 
     -- Log deleted records (DELETE)
-    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, OperationType)
-    SELECT TournamentID, OrganizerID, TournamentName, StartDateTime, EndDateTime, ApprovalStatus, 'DELETE'
+    INSERT INTO TournamentsHistory (TournamentID, OrganizerID, TournamentName, ApprovalStatus, OperationType)
+    SELECT TournamentID, OrganizerID, TournamentName, ApprovalStatus, 'DELETE'
     FROM deleted;
 END;
 GO
@@ -377,19 +372,19 @@ AS
 BEGIN
     -- Log inserted records (INSERT)
     INSERT INTO ParticipantsHistory (ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender, ChangeType)
-    SELECT ParticipantID, BookingID, ENCRYPTBYKEY(KEY_GUID('ParticipantKey'), FullName), Email, PhoneNumber, Age, Gender, 
+    SELECT ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender, 
 		'INSERT' FROM inserted;
     
     -- Log updated records (UPDATE)
     INSERT INTO ParticipantsHistory (ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender, ChangeType)
-    SELECT i.ParticipantID, i.BookingID, ENCRYPTBYKEY(KEY_GUID('ParticipantKey'), i.FullName), i.Email, i.PhoneNumber, i.Age, i.Gender, 
+    SELECT i.ParticipantID, i.BookingID, i.FullName, i.Email, i.PhoneNumber, i.Age, i.Gender, 
 		'UPDATE' FROM inserted i
 	JOIN deleted d ON i.ParticipantID = d.ParticipantID
 	WHERE i.ParticipantID IS NOT NULL;
 
     -- Log deleted records (DELETE)
     INSERT INTO ParticipantsHistory (ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender, ChangeType)
-    SELECT ParticipantID, BookingID, ENCRYPTBYKEY(KEY_GUID('ParticipantKey'), FullName), Email, PhoneNumber, Age, Gender, 
+    SELECT ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender, 
 	'DELETE'FROM deleted;
 END;
 GO
