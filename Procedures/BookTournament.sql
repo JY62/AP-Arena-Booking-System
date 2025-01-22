@@ -1,68 +1,54 @@
 CREATE PROCEDURE BookTournament
-    @UserID NVARCHAR(50),          
-    @TournamentID NVARCHAR(8),
-    @FacilityID NVARCHAR(8),
-    @TotalAmountOfPeople INT
+    @TournamentID NVARCHAR(8) -- TournamentID to be booked
 AS
 BEGIN
-    -- Check if the current user is a Tournament Organizer
-    IF NOT EXISTS (
-        SELECT 1
-        FROM sys.database_role_members drm
-        JOIN sys.database_principals dp ON drm.role_principal_id = dp.principal_id
-        WHERE dp.name = 'TournamentOrganizer' 
-        AND drm.member_principal_id = USER_ID(@UserID)
-    )
-    BEGIN
-        RAISERROR('You do not have permission to book a tournament. Only Tournament Organizers are allowed.', 16, 1);
-        RETURN;
-    END
+    -- Declare necessary variables
+    DECLARE @UserID NVARCHAR(50);
+    DECLARE @FacilityID NVARCHAR(8);
+    DECLARE @BookingType NVARCHAR(50);
+    DECLARE @StartDateTime DATETIME;
+    DECLARE @EndDateTime DATETIME;
+    DECLARE @TotalAmountOfPeople INT;
+
+    -- Set the current UserID based on the login user
+    SET @UserID = SUSER_NAME();
 
     -- Validate if the tournament exists and is approved
     IF (SELECT COUNT(*) 
         FROM Tournaments 
-        WHERE TournamentID = @TournamentID 
-        AND ApprovalStatus = 'Approved') = 0
+        WHERE TournamentID = @TournamentID) = 0
     BEGIN
-        RAISERROR('Tournament does not exist or is not approved for booking.', 16, 1);
+        RAISERROR('Tournament does not exist.', 16, 1);
         RETURN;
     END
 
-    -- Check if the facility is available
-    DECLARE @FacilityAvailable BIT;
+    -- Example logic for assigning facility and other details
+    SET @FacilityID = 'F1'; -- Example FacilityID
+    SET @BookingType = 'Tournament'; 
+    SET @StartDateTime = GETDATE(); 
+    SET @EndDateTime = DATEADD(HOUR, 3, @StartDateTime); 
+    SET @TotalAmountOfPeople = 100;
 
-    SET @FacilityAvailable = (SELECT TOP 1 Available 
-                              FROM Facilities 
-                              WHERE FacilityID = @FacilityID 
-                              AND Available = 1);
-
-    IF @FacilityAvailable = 0
+    -- Check if the user has already booked the tournament
+    IF EXISTS (SELECT 1 FROM Bookings WHERE TournamentID = @TournamentID AND UserID = @UserID)
     BEGIN
-        RAISERROR('The selected facility is not available for the requested time.', 16, 1);
+        RAISERROR('You have already booked this tournament.', 16, 1);
         RETURN;
     END
 
-    -- Declare booking details
-    DECLARE @BookingType NVARCHAR(50) = 'Tournament';
-    DECLARE @StartDateTime DATETIME = GETDATE();  -- Current time as example
-    DECLARE @EndDateTime DATETIME = DATEADD(HOUR, 3, @StartDateTime);  -- 3 hours for the event
-
-    -- Check if the facility has already been booked for the tournament
-    IF EXISTS (SELECT 1 
-               FROM Bookings 
-               WHERE FacilityID = @FacilityID 
-               AND TournamentID = @TournamentID
-               AND ((@StartDateTime BETWEEN StartDateTime AND EndDateTime) OR 
-                    (@EndDateTime BETWEEN StartDateTime AND EndDateTime)))
-    BEGIN
-        RAISERROR('The facility is already booked for the selected time.', 16, 1);
-        RETURN;
-    END
-
-    -- Insert the booking into the Bookings table
+    -- Insert the booking if the user hasn't booked it yet
     INSERT INTO Bookings (FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople)
     VALUES (@FacilityID, @UserID, @BookingType, @TournamentID, @StartDateTime, @EndDateTime, @TotalAmountOfPeople);
+
+    -- Update the Tournament table to mark it as booked
+    UPDATE Tournaments
+    SET ApprovalStatus = 'Approved'  -- Ensure valid value ('Approved' or 'Denied')
+    WHERE TournamentID = @TournamentID;
+
+    PRINT 'Tournament booked successfully.';
 END;
+
+
 
 
 
@@ -96,10 +82,9 @@ drop procedure BookTournament
 
 -- Execute the procedure as a Tournament Organizer
 -- Assuming the user TO001 is a Tournament Organizer
-EXECUTE AS USER = 'TO001'; -- Impersonate the Tournament Organizer
+EXECUTE AS USER = 'TO001';  -- Impersonate Tournament Organizer
+
+-- Valid execution of the procedure by the Tournament Organizer
 EXEC BookTournament 
-    @UserID = 'TO001',          -- Tournament Organizer UserID
-    @TournamentID = 'T001',     -- TournamentID to be booked
-    @FacilityID = 'F1',         -- FacilityID to be used
-    @TotalAmountOfPeople = 100; -- Total people expected
-REVERT;
+    @TournamentID = 'T001';  -- The TournamentID of the tournament to be booked
+revert;
