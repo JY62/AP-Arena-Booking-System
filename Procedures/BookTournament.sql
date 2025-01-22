@@ -1,58 +1,105 @@
 CREATE PROCEDURE BookTournament
-    @TournamentID NVARCHAR(8) -- Input parameter for TournamentID
+    @UserID NVARCHAR(50),          
+    @TournamentID NVARCHAR(8),
+    @FacilityID NVARCHAR(8),
+    @TotalAmountOfPeople INT
 AS
 BEGIN
-    -- Step 1: Display available tournaments for booking
-    PRINT 'Available Approved Tournaments:';
-    SELECT TournamentID, TournamentName, StartDate, EndDate
-    FROM Tournaments
-    WHERE ApprovalStatus = 'Approved';
+    -- Check if the current user is a Tournament Organizer
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.database_role_members drm
+        JOIN sys.database_principals dp ON drm.role_principal_id = dp.principal_id
+        WHERE dp.name = 'TournamentOrganizer' 
+        AND drm.member_principal_id = USER_ID(@UserID)
+    )
+    BEGIN
+        RAISERROR('You do not have permission to book a tournament. Only Tournament Organizers are allowed.', 16, 1);
+        RETURN;
+    END
 
-    -- Validate if the TournamentID exists and is approved
+    -- Validate if the tournament exists and is approved
     IF (SELECT COUNT(*) 
         FROM Tournaments 
         WHERE TournamentID = @TournamentID 
         AND ApprovalStatus = 'Approved') = 0
     BEGIN
-        RAISERROR('Invalid or Unapproved TournamentID.', 16, 1);
+        RAISERROR('Tournament does not exist or is not approved for booking.', 16, 1);
         RETURN;
     END
 
-    -- Step 2: Insert booking details into the Bookings table
-    INSERT INTO Bookings (FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople)
-    VALUES (
-        F1, -- FacilityID 
-        SYSTEM_USER, -- UserID of the logged-in user
-        'Tournament', -- BookingType
-        @TournamentID, -- TournamentID provided by the organizer
-        GETDATE(), -- StartDateTime (current date and time)
-        DATEADD(HOUR, 3, GETDATE()), -- EndDateTime (3 hours from now)
-        100 -- TotalAmountOfPeople 
-    );
+    -- Check if the facility is available
+    DECLARE @FacilityAvailable BIT;
 
-    PRINT 'Booking successfully created for TournamentID: ' + @TournamentID;
+    SET @FacilityAvailable = (SELECT TOP 1 Available 
+                              FROM Facilities 
+                              WHERE FacilityID = @FacilityID 
+                              AND Available = 1);
+
+    IF @FacilityAvailable = 0
+    BEGIN
+        RAISERROR('The selected facility is not available for the requested time.', 16, 1);
+        RETURN;
+    END
+
+    -- Declare booking details
+    DECLARE @BookingType NVARCHAR(50) = 'Tournament';
+    DECLARE @StartDateTime DATETIME = GETDATE();  -- Current time as example
+    DECLARE @EndDateTime DATETIME = DATEADD(HOUR, 3, @StartDateTime);  -- 3 hours for the event
+
+    -- Check if the facility has already been booked for the tournament
+    IF EXISTS (SELECT 1 
+               FROM Bookings 
+               WHERE FacilityID = @FacilityID 
+               AND TournamentID = @TournamentID
+               AND ((@StartDateTime BETWEEN StartDateTime AND EndDateTime) OR 
+                    (@EndDateTime BETWEEN StartDateTime AND EndDateTime)))
+    BEGIN
+        RAISERROR('The facility is already booked for the selected time.', 16, 1);
+        RETURN;
+    END
+
+    -- Insert the booking into the Bookings table
+    INSERT INTO Bookings (FacilityID, UserID, BookingType, TournamentID, StartDateTime, EndDateTime, TotalAmountOfPeople)
+    VALUES (@FacilityID, @UserID, @BookingType, @TournamentID, @StartDateTime, @EndDateTime, @TotalAmountOfPeople);
 END;
 
--- Step 1: Create the TournamentOrganizer role
+
+
+-- Create role for Tournament Organizer
 CREATE ROLE TournamentOrganizer;
 
--- Step 2: Create login and user for the Tournament Organizer
-CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  -- Replace with actual password
+-- Create login for Tournament Organizer
+CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  
 CREATE USER TO001 FOR LOGIN TO001;
 
--- Step 3: Add the user to the TournamentOrganizer role
+-- Add user to Tournament Organizer role
 EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
 
--- Step 4: Grant SELECT permission on Tournaments and EXECUTE on BookTournament
-GRANT SELECT ON dbo.Tournaments TO TournamentOrganizer;
+-- Grant permissions on BookTournament to TournamentOrganizer
 GRANT EXECUTE ON dbo.BookTournament TO TournamentOrganizer;
 
--- Valid EXEC 
-EXEC BookTournament @TournamentID = 'T001';
-REVERT;
+-- Create role for Tournament Organizer
+DROP ROLE TournamentOrganizer;
 
--- Invalid EXEC 
-EXEC BookTournament @TournamentID = 1;
-REVERT;
+-- Create login for Tournament Organizer
+DROP LOGIN TO001   
+DROP USER TO001
+
+-- Add user to Tournament Organizer role
+EXEC sp_droprolemember 'TournamentOrganizer', 'TO001';
+
+-- Grant permissions on BookTournament to TournamentOrganizer
+REVOKE EXECUTE ON dbo.BookTournament TO TournamentOrganizer;
 
 drop procedure BookTournament
+
+-- Execute the procedure as a Tournament Organizer
+-- Assuming the user TO001 is a Tournament Organizer
+EXECUTE AS USER = 'TO001'; -- Impersonate the Tournament Organizer
+EXEC BookTournament 
+    @UserID = 'TO001',          -- Tournament Organizer UserID
+    @TournamentID = 'T001',     -- TournamentID to be booked
+    @FacilityID = 'F1',         -- FacilityID to be used
+    @TotalAmountOfPeople = 100; -- Total people expected
+REVERT;
