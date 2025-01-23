@@ -1,49 +1,67 @@
--- First, we open the symmetric key for encryption
-CREATE PROCEDURE UpdateParticipant
-    @CurrentUserID NVARCHAR(10), -- Current User ID (could be IC or TO)
+CREATE PROCEDURE UpdateParticipants
     @BookingID NVARCHAR(10), -- Booking ID for the participant
-    @FullName NVARCHAR(100), -- Full name of the participant (to be encrypted)
-    @Email NVARCHAR(100), -- Participant's email
-    @PhoneNumber NVARCHAR(20), -- Participant's phone number
-    @Age INT, -- Participant's age
-    @Gender NVARCHAR(10) -- Participant's gender
+    @FullName NVARCHAR(100) = NULL, -- Full name of the participant (to be encrypted), optional
+    @Email NVARCHAR(100) = NULL, -- Participant's email, optional
+    @PhoneNumber NVARCHAR(20) = NULL, -- Participant's phone number, optional
+    @Age INT = NULL, -- Participant's age, optional
+    @Gender NVARCHAR(10) = NULL -- Participant's gender, optional
 AS
 BEGIN
-    -- Open the symmetric key for encryption
-    OPEN SYMMETRIC KEY ParticipantKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
+    -- Declare variables for encryption and validation
+    DECLARE @EncryptedFullName VARBINARY(256) = NULL;
+    DECLARE @OriginalEmail NVARCHAR(100);
+    DECLARE @OriginalPhoneNumber NVARCHAR(20);
+    DECLARE @OriginalAge INT;
+    DECLARE @OriginalGender NVARCHAR(10);
+    DECLARE @UserID NVARCHAR(100) = SUSER_NAME();
 
-    -- Check if the user is authorized to update or insert the participant
-    IF EXISTS (SELECT 1 FROM Bookings WHERE UserID = @CurrentUserID AND BookingID = @BookingID)
+    -- Check if the current user is authorized to update the participant
+    IF NOT EXISTS (SELECT 1 FROM Bookings WHERE UserID = @UserID AND BookingID = @BookingID)
     BEGIN
-        -- If the participant already exists for the given booking, update the record
-        IF EXISTS (SELECT 1 FROM Participants WHERE BookingID = @BookingID)
-        BEGIN
-            UPDATE Participants
-            SET 
-                FullName = ENCRYPTBYKEY(KEY_GUID('ParticipantKey'), @FullName),
-                Email = @Email,
-                PhoneNumber = @PhoneNumber,
-                Age = @Age,
-                Gender = @Gender
-            WHERE BookingID = @BookingID;
-        END
-        -- If the participant does not exist, insert a new record
-        ELSE
-        BEGIN
-            INSERT INTO Participants (ParticipantID, BookingID, FullName, Email, PhoneNumber, Age, Gender)
-            VALUES 
-                (NEWID(), @BookingID, ENCRYPTBYKEY(KEY_GUID('ParticipantKey'), @FullName), @Email, @PhoneNumber, @Age, @Gender);
-        END
-    END
-    ELSE
-    BEGIN
-        -- If the user is not authorized, print a message
-        PRINT 'You are not authorized to update or insert this participant.';
+        RAISERROR('You are not authorized to update this participant.', 16, 1);
+        RETURN;
     END
 
-    -- Close the symmetric key after the operation
-    CLOSE SYMMETRIC KEY ParticipantKey;
+    -- Retrieve the original values for the participant
+    SELECT 
+        @OriginalEmail = Email,
+        @OriginalPhoneNumber = PhoneNumber,
+        @OriginalAge = Age,
+        @OriginalGender = Gender
+    FROM Participants
+    WHERE BookingID = @BookingID;
+
+    -- Encrypt the FullName if provided
+    IF @FullName IS NOT NULL
+    BEGIN
+        OPEN SYMMETRIC KEY ParticipantKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
+        SET @EncryptedFullName = EncryptByKey(Key_GUID('ParticipantKey'), @FullName);
+        CLOSE SYMMETRIC KEY ParticipantKey;
+    END
+
+    -- Update the participant's details
+    UPDATE Participants
+    SET
+        FullName = CASE WHEN @EncryptedFullName IS NOT NULL THEN @EncryptedFullName ELSE FullName END,
+        Email = CASE WHEN @Email IS NOT NULL THEN @Email ELSE @OriginalEmail END,
+        PhoneNumber = CASE WHEN @PhoneNumber IS NOT NULL THEN @PhoneNumber ELSE @OriginalPhoneNumber END,
+        Age = CASE WHEN @Age IS NOT NULL THEN @Age ELSE @OriginalAge END,
+        Gender = CASE WHEN @Gender IS NOT NULL THEN @Gender ELSE @OriginalGender END
+    WHERE BookingID = @BookingID;
 END;
+
+-- Example Execution
+EXECUTE AS LOGIN = 'IC001';
+
+EXEC UpdateParticipants
+    @BookingID = 'B001',
+    @FullName = 'Jane hoe',
+    @Email = 'jane.Hoe@example.com',
+    @PhoneNumber = '+60126543210',
+    @Age = 25,
+    @Gender = 'Female';
+
+REVERT;
 
 -- Step 6: Create roles for permissions
 CREATE ROLE TournamentOrganizer;
@@ -62,26 +80,25 @@ EXEC sp_addrolemember 'IndividualCustomer', 'IC001';
 -- Step 9: Grant permissions to roles
 GRANT SELECT ON dbo.Bookings TO TournamentOrganizer, IndividualCustomer;
 GRANT SELECT ON dbo.Participants TO TournamentOrganizer, IndividualCustomer;
-GRANT EXECUTE ON dbo.UpdateParticipant TO TournamentOrganizer, IndividualCustomer;
+GRANT EXECUTE ON dbo.UpdateParticipants TO TournamentOrganizer, IndividualCustomer;
 GRANT CONTROL ON SYMMETRIC KEY::ParticipantKey TO TournamentOrganizer, IndividualCustomer;
-
--- Step 10: Valid execution as a Tournament Organizer
-EXECUTE AS USER = 'IC001';  
-EXEC UpdateParticipant 
-    @CurrentUserID = 'IC001',        -- The current user ID (either Individual Customer or Tournament Organizer)
-    @BookingID = 'B002',             -- The Booking ID associated with the participant
-    @FullName = 'Emile Fring',         -- The full name of the participant (this will be encrypted)
-    @Email = 'Fring@myhouse.com',-- The participant's email
-    @PhoneNumber = '+60176809123',   -- The participant's phone number
-    @Age = 33,                       -- The participant's age
-    @Gender = 'Male'; 
-REVERT;
+GRANT EXECUTE ON OBJECT::dbo.UpdateParticipants TO TournamentOrganizer;
+GRANT EXECUTE ON OBJECT::dbo.UpdateParticipants TO IndividualCustomer;
 
 -- Cleanup
-DROP PROCEDURE UpdateParticipant;
+DROP PROCEDURE UpdateParticipants;
 DROP ROLE TournamentOrganizer;
 DROP ROLE IndividualCustomer;
 DROP LOGIN TO001;
 DROP LOGIN IC001;
 DROP USER TO001;
 DROP USER IC001;
+
+
+REVOKE SELECT ON dbo.Bookings TO TournamentOrganizer, IndividualCustomer;
+REVOKE SELECT ON dbo.Participants TO TournamentOrganizer, IndividualCustomer;
+REVOKE EXECUTE ON dbo.UpdateParticipants TO TournamentOrganizer, IndividualCustomer;
+REVOKE CONTROL ON SYMMETRIC KEY::ParticipantKey TO TournamentOrganizer, IndividualCustomer;
+
+EXEC sp_droprolemember 'TournamentOrganizer', 'TO001';
+EXEC sp_droprolemember 'IndividualCustomer', 'IC001';
