@@ -1,22 +1,3 @@
--- Use the database
-USE APArenaDB;
-
--- First create a procedure to get the OrganizerID with UNMASK permission
-CREATE OR ALTER PROCEDURE GetTournamentOrganizer
-    @TournamentID VARCHAR(8),
-    @OrganizerID VARCHAR(8) OUTPUT
-WITH EXECUTE AS OWNER
-AS
-BEGIN
-    SET NOCOUNT ON;
-    
-    SELECT @OrganizerID = NULLIF(OrganizerID, '')
-    FROM Tournaments 
-    WHERE TournamentID = @TournamentID;
-END;
-GO
-
--- Main procedure
 CREATE OR ALTER PROCEDURE UpdateTournamentRegistration
     @TournamentID VARCHAR(8),
     @NewApprovalStatus VARCHAR(20) = NULL,
@@ -26,10 +7,10 @@ BEGIN
     SET NOCOUNT ON;
     
     -- Declare variables for role checking
-    DECLARE @UserRole VARCHAR(50)
-    DECLARE @OrganizerID VARCHAR(8)
-    DECLARE @CurrentUserID VARCHAR(8)
-    DECLARE @ErrorMessage VARCHAR(200)
+    DECLARE @UserRole VARCHAR(50);
+    DECLARE @OrganizerID VARCHAR(8);
+    DECLARE @CurrentUserID VARCHAR(8);
+    DECLARE @ErrorMessage VARCHAR(200);
     
     -- Get current user's login name without domain prefix
     SET @CurrentUserID = SUBSTRING(SYSTEM_USER, 
@@ -45,9 +26,9 @@ BEGIN
     
     -- Get the user's role
     IF IS_ROLEMEMBER('ComplexManager') = 1
-        SET @UserRole = 'ComplexManager'
+        SET @UserRole = 'ComplexManager';
     ELSE IF IS_ROLEMEMBER('TournamentOrganizer') = 1
-        SET @UserRole = 'TournamentOrganizer'
+        SET @UserRole = 'TournamentOrganizer';
     ELSE
         SET @UserRole = 'NoRole';
     
@@ -63,7 +44,7 @@ BEGIN
         BEGIN
             THROW 51000, 'Invalid approval status. Must be either Approved, Pending, or Rejected.', 1;
             RETURN;
-        END
+        END;
         
         -- Update tournament status
         UPDATE Tournaments
@@ -72,30 +53,26 @@ BEGIN
         
         PRINT 'Tournament approval status updated successfully.';
     END
-    
     -- Handle TournamentOrganizer operations
     ELSE IF @UserRole = 'TournamentOrganizer' AND @NewTournamentName IS NOT NULL
     BEGIN
-        -- Get the OrganizerID using the helper procedure
-        EXEC GetTournamentOrganizer 
-            @TournamentID = @TournamentID,
-            @OrganizerID = @OrganizerID OUTPUT;
+        -- Fetch the OrganizerID directly
+        SELECT @OrganizerID = OrganizerID
+        FROM Tournaments
+        WHERE TournamentID = @TournamentID;
 
-        IF @OrganizerID IS NULL
-        BEGIN
-            THROW 51000, 'Tournament does not exist or has no organizer assigned.', 1;
-            RETURN;
-        END
+        -- Debug: Print OrganizerID and CurrentUserID
+        PRINT 'Current User ID: ' + @CurrentUserID;
+        PRINT 'Organizer ID: ' + @OrganizerID;
 
         -- Check if the user is the organizer of this tournament
         IF TRIM(@CurrentUserID) <> TRIM(@OrganizerID)
         BEGIN
-            SET @ErrorMessage = 'You can only modify tournaments that you organize. Current user: ' + 
-                               TRIM(@CurrentUserID) + ', Tournament: ' + @TournamentID;
+            SET @ErrorMessage = 'You can only modify tournaments that you organize.';
             THROW 51000, @ErrorMessage, 1;
             RETURN;
-        END
-        
+        END;
+
         -- Update tournament name
         UPDATE Tournaments
         SET TournamentName = @NewTournamentName
@@ -103,15 +80,15 @@ BEGIN
         
         PRINT 'Tournament name updated successfully.';
     END
-    
     -- Handle unauthorized access
     ELSE
     BEGIN
         THROW 51000, 'You do not have permission to perform this operation.', 1;
         RETURN;
-    END
+    END;
 END;
 GO
+
 
 
 
@@ -146,7 +123,7 @@ EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
 
 --GRANTING PERMISSION 
 GRANT EXECUTE ON dbo.UpdateTournamentRegistration TO TournamentOrganizer;
-GRANT EXECUTE ON GetTournamentOrganizer TO TournamentOrganizer;
+GRANT UNMASK TO TournamentOrganizer;
 GRANT SELECT ON dbo.Tournaments TO TournamentOrganizer;
 
 -- As Tournament Organizer (updating tournament name)
@@ -156,4 +133,6 @@ EXEC UpdateTournamentRegistration
     @NewTournamentName = 'Updated Tournament';
 REVERT;
 
-
+SELECT TournamentID, OrganizerID 
+FROM Tournaments
+WHERE TournamentID = 'T001';
