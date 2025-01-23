@@ -140,8 +140,7 @@ CREATE TABLE Facility (
                                                      'Swimming pool', 'Gym')),
     FacilityName VARCHAR(100) NOT NULL,
     Capacity INT NOT NULL CHECK (Capacity > 0 AND Capacity <= 9999),
-    RatePerHour DECIMAL(10,2) NOT NULL CHECK (RatePerHour >= 0),
-    AvailabilityStatus BIT NOT NULL DEFAULT 1
+    RatePerHour DECIMAL(10,2) NOT NULL CHECK (RatePerHour >= 0)
 );
 GO
 
@@ -152,7 +151,6 @@ CREATE TABLE FacilityHistory (
     FacilityName VARCHAR(100),
     Capacity INT,
     RatePerHour DECIMAL(10,2),
-    AvailabilityStatus BIT,
     OperationType VARCHAR(10), -- 'INSERT', 'UPDATE', 'DELETE'
     ChangeDate DATETIME DEFAULT GETDATE()
 );
@@ -164,20 +162,20 @@ AFTER INSERT, UPDATE, DELETE
 AS
 BEGIN
     -- Log inserted records (INSERT)
-    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
-    SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, 'INSERT'
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, OperationType)
+    SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, 'INSERT'
     FROM inserted;
 
     -- Log updated records (UPDATE)
-    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
-    SELECT i.FacilityID, i.FacilityType, i.FacilityName, i.Capacity, i.RatePerHour, i.AvailabilityStatus, 'UPDATE'
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, OperationType)
+    SELECT i.FacilityID, i.FacilityType, i.FacilityName, i.Capacity, i.RatePerHour, 'UPDATE'
     FROM inserted i
     JOIN deleted d ON i.FacilityID = d.FacilityID
     WHERE i.FacilityID IS NOT NULL;
 
     -- Log deleted records (DELETE)
-    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, OperationType)
-    SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, AvailabilityStatus, 'DELETE'
+    INSERT INTO FacilityHistory (FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, OperationType)
+    SELECT FacilityID, FacilityType, FacilityName, Capacity, RatePerHour, 'DELETE'
     FROM deleted;
 END;
 GO
