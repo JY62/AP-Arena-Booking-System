@@ -14,7 +14,8 @@ BEGIN
         BEGIN TRY
 			OPEN SYMMETRIC KEY UserKey DECRYPTION BY PASSWORD = 'QwErTy12345!@#$%';
             INSERT INTO TournamentOrganizer (OrganizerID, BusinessName, BusinessRegistrationNumber, Address)
-            VALUES (@OrganizerID, ENCRYPTBYKEY(KEY_GUID('UserKey'), '@BusinessName'), @BusinessRegistrationNumber, CONVERT(VARBINARY(255), ENCRYPTBYKEY(KEY_GUID('UserKey'), '@Address')));
+            VALUES (@OrganizerID, ENCRYPTBYKEY(KEY_GUID('UserKey'), '@BusinessName'), 
+		    @BusinessRegistrationNumber, CONVERT(VARBINARY(255), ENCRYPTBYKEY(KEY_GUID('UserKey'), '@Address')));
             CLOSE SYMMETRIC KEY UserKey;
             PRINT 'Insert successful.';
         END TRY
