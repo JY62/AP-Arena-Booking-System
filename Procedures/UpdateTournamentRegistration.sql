@@ -40,9 +40,9 @@ BEGIN
     IF @UserRole = 'ComplexManager' AND @NewApprovalStatus IS NOT NULL
     BEGIN
         -- Validate the new status value
-        IF @NewApprovalStatus NOT IN ('Approved', 'Pending', 'Rejected')
+        IF @NewApprovalStatus NOT IN ('Approved', 'Rejected')
         BEGIN
-            THROW 51000, 'Invalid approval status. Must be either Approved, Pending, or Rejected.', 1;
+            THROW 51000, 'Invalid approval status. Must be either Approved or Rejected.', 1;
             RETURN;
         END;
         
