@@ -5,7 +5,7 @@ CREATE PROCEDURE UpdateBusinessRegistration
 AS
 BEGIN
     -- Step 1: Validate if the ApprovalStatus is one of the allowed values
-    IF @ApprovalStatus NOT IN ('Approved', 'Pending')
+    IF @ApprovalStatus NOT IN ('Approved', 'Denied')
     BEGIN
         RAISERROR('Invalid ApprovalStatus. Only "Approved", "Denied", or "Pending" are allowed.', 16, 1);
         RETURN;
