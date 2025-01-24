@@ -1,128 +1,118 @@
 CREATE PROCEDURE UpdateBooking
     @BookingID VARCHAR(8),
-    @FacilityID VARCHAR(8) = NULL,
-    @UserID VARCHAR(8) = NULL,
-    @BookingType VARCHAR(20) = NULL,
-    @TournamentID VARCHAR(8) = NULL,
-    @StartDateTime DATETIME = NULL,
-    @EndDateTime DATETIME = NULL,
-    @TotalAmountOfPeople INT = NULL
+    @FacilityID VARCHAR(8),
+    @StartDateTime DATETIME,
+    @EndDateTime DATETIME,
+    @TotalAmountOfPeople INT
 AS
 BEGIN
-    -- Fetch the logged-in user ID and role
-    DECLARE @LoggedInUserID NVARCHAR(128) = SUSER_SNAME();
-    DECLARE @Role NVARCHAR(50);
-    DECLARE @FacilityCapacity INT;
-    DECLARE @AvailabilityStatus INT;
+    SET NOCOUNT ON;
 
-    -- Determine the role of the logged-in user based on the UserID prefix
-    IF LEFT(@LoggedInUserID, 2) = 'CM'
-        SET @Role = 'ComplexManager';
-    ELSE
-        SET @Role = 'Other';
-
-    -- Check if the user is a Complex Manager
-    IF @Role = 'ComplexManager'
+    -- Validate that the current user is the owner of the booking
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Bookings
+        WHERE BookingID = @BookingID
+          AND UserID = SUSER_SNAME()
+    )
     BEGIN
-        -- Validate FacilityID availability status, if provided
-        IF @FacilityID IS NOT NULL
-        BEGIN
-            SELECT @AvailabilityStatus = AvailabilityStatus, 
-                   @FacilityCapacity = Capacity
-            FROM dbo.Facility
-            WHERE FacilityID = @FacilityID;
-
-            IF @AvailabilityStatus IS NULL
-            BEGIN
-                PRINT 'Facility not found. Update cannot proceed.';
-                RETURN;
-            END
-
-            IF @AvailabilityStatus = 0
-            BEGIN
-                PRINT 'Facility not available.';
-                RETURN;
-            END
-        END
-
-        -- Validate TotalAmountOfPeople against Facility capacity, if provided
-        IF @TotalAmountOfPeople IS NOT NULL AND @FacilityCapacity IS NOT NULL
-        BEGIN
-            IF @TotalAmountOfPeople > @FacilityCapacity
-            BEGIN
-                PRINT 'The amount of people exceeds the facility capacity.';
-                RETURN;
-            END
-        END
-
-        -- Validate UserID if provided
-        IF @UserID IS NOT NULL
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM dbo.[User] WHERE UserID = @UserID)
-            BEGIN
-                PRINT 'The provided UserID does not exist in the dbo.[User] table.';
-                RETURN;
-            END
-        END
-
-        -- Update the booking information
-        BEGIN TRY
-            UPDATE Bookings
-            SET 
-                FacilityID = ISNULL(@FacilityID, FacilityID),
-                UserID = ISNULL(@UserID, UserID),
-                BookingType = ISNULL(@BookingType, BookingType),
-                TournamentID = ISNULL(@TournamentID, TournamentID),
-                StartDateTime = ISNULL(@StartDateTime, StartDateTime),
-                EndDateTime = ISNULL(@EndDateTime, EndDateTime),
-                TotalAmountOfPeople = ISNULL(@TotalAmountOfPeople, TotalAmountOfPeople)
-            WHERE BookingID = @BookingID;
-
-            -- Check if the update affected any rows
-            IF @@ROWCOUNT = 0
-                PRINT 'No booking found with the specified BookingID.';
-            ELSE
-                PRINT 'Booking updated successfully.';
-        END TRY
-        BEGIN CATCH
-            PRINT 'An error occurred while updating the booking. Please check your input.';
-        END CATCH
+        RAISERROR ('You can only update your own bookings.', 16, 1);
+        RETURN;
     END
-    ELSE
+
+    -- Validate that TotalAmountOfPeople does not exceed Facility Capacity
+    DECLARE @Capacity INT;
+    SELECT @Capacity = Capacity
+    FROM Facility
+    WHERE FacilityID = @FacilityID;
+
+    IF @TotalAmountOfPeople > @Capacity
     BEGIN
-        -- If the user is not a Complex Manager, display a message
-        PRINT 'You do not have permission to update bookings.';
+        RAISERROR ('Total amount of people exceeds the facility capacity.', 16, 1);
+        RETURN;
     END
-END;
-GO
+
+    -- Validate that the new StartDateTime and EndDateTime do not conflict with existing bookings
+    IF EXISTS (
+        SELECT 1
+        FROM Bookings
+        WHERE FacilityID = @FacilityID
+          AND BookingID <> @BookingID
+          AND (
+              (@StartDateTime < EndDateTime AND @EndDateTime > StartDateTime) -- Overlap condition
+          )
+    )
+    BEGIN
+        RAISERROR ('The new booking time conflicts with another booking.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the booking details
+    UPDATE Bookings
+    SET 
+        FacilityID = @FacilityID,
+        StartDateTime = @StartDateTime,
+        EndDateTime = @EndDateTime,
+        TotalAmountOfPeople = @TotalAmountOfPeople
+    WHERE BookingID = @BookingID;
+
+    PRINT 'Booking updated successfully.';
+END
 
 
+-- Testing for TO 
+-- Create the TournamentOrganizer role
+CREATE ROLE TournamentOrganizer;
 
--- Testing
--- Create the DataAdmin role
-CREATE ROLE ComplexManager;
+-- Create the TO001 login and user
+CREATE LOGIN TO001 WITH PASSWORD = 'yourpassword';  -- Replace with actual password
+CREATE USER TO001 FOR LOGIN TO001;
 
--- Create the DA001 login and user
-CREATE LOGIN CM002 WITH PASSWORD = 'yourpassword';  -- Replace with actual password
-CREATE USER CM002 FOR LOGIN CM002;
-
--- Add DA001 user to the DataAdmin role
-EXEC sp_addrolemember 'ComplexManager', 'CM002';
+-- Add TO001 user to the DataAdmin role
+EXEC sp_addrolemember 'TournamentOrganizer', 'TO001';
 
 -- Grant EXECUTE permission on the procedure to the DataAdmin role
-GRANT EXECUTE ON dbo.UpdateBooking TO ComplexManager;
+GRANT EXECUTE ON dbo.UpdateBooking TO TournamentOrganizer;
 
-GRANT SELECT ON dbo.Bookings TO ComplexManager;
+GRANT SELECT ON dbo.Bookings TO TournamentOrganizer;
 
 -- Log in as DA001 and execute the procedure
-EXECUTE AS USER = 'CM002';
+EXECUTE AS USER = 'TO001';
+EXEC UpdateBooking 
+    @BookingID = 'B002',
+    @FacilityID = 'F1',
+    @StartDateTime = '2025-01-20 12:00:00.000',
+    @EndDateTime = '2025-01-20 01:00:00.000',
+    @TotalAmountOfPeople = 10;
+
+REVERT;
+
+drop procedure UpdateBooking
+
+-- Testing for IC
+-- Create the DataAdmin role
+CREATE ROLE IndividualCustomer;
+
+-- Create the DA001 login and user
+CREATE LOGIN IC001 WITH PASSWORD = 'yourpassword';  -- Replace with actual password
+CREATE USER IC001 FOR LOGIN IC001;
+
+-- Add DA001 user to the DataAdmin role
+EXEC sp_addrolemember 'IndividualCustomer', 'IC001';
+
+-- Grant EXECUTE permission on the procedure to the DataAdmin role
+GRANT EXECUTE ON dbo.UpdateBooking TO IndividualCustomer;
+
+GRANT SELECT ON dbo.Bookings TO IndividualCustomer;
+
+-- Log in as DA001 and execute the procedure
+EXECUTE AS USER = 'IC001';
 EXEC UpdateBooking 
     @BookingID = 'B001',
-    @FacilityID = 'F5',
-    @UserID = 'IC006',
-    @StartDateTime = '2025-01-23 10:00:00',
-    @EndDateTime = '2025-01-23 12:00:00',
-    @TotalAmountOfPeople = 30;
+    @FacilityID = 'F1',
+    @StartDateTime = '2025-01-20 10:00:00.000',
+    @EndDateTime = '2025-01-20 12:00:00.000',
+    @TotalAmountOfPeople = 10;
 
 REVERT;
 
