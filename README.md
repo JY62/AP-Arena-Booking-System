@@ -29,7 +29,7 @@ The project also emphasizes robust database security, addressing key security ob
 ### Database Design
 - Designed to align with business rules and security requirements.
 - Includes a complete database schema with security and access configurations.
-
 ### Security Enhancements
 - MS-SQL scripts for secure implementation of permissions, data protection, and auditing.
 - Inline comments for ease of understanding and reproducibility.
+
